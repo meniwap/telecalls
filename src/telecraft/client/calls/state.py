@@ -52,6 +52,8 @@ _ALLOWED_TRANSITIONS: dict[CallState, set[CallState]] = {
     CallState.FAILED: set(),
 }
 
+TERMINAL_CALL_STATES: set[CallState] = {CallState.ENDED, CallState.FAILED}
+
 
 def can_transition(from_state: CallState, to_state: CallState) -> bool:
     if from_state == to_state:

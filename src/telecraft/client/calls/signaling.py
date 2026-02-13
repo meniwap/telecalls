@@ -36,13 +36,14 @@ class CallSignalingAdapter:
         peer: PeerRef,
         *,
         g_a_hash: bytes = b"",
+        video: bool = False,
         timeout: float = 20.0,
     ) -> Any:
         user = await self._resolve_input_user(peer, timeout=timeout)
         res = await self._raw.invoke_api(
             PhoneRequestCall(
-                flags=0,
-                video=None,
+                flags=1 if video else 0,
+                video=True if video else None,
                 user_id=user,
                 random_id=randbits(31),
                 g_a_hash=bytes(g_a_hash),

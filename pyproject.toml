@@ -13,10 +13,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+native = [
+  "cffi>=1.17",
+]
 dev = [
   "pytest>=8",
   "ruff>=0.5",
   "mypy>=1.10",
+  "cffi>=1.17",
 ]
 
 [tool.pytest.ini_options]
@@ -50,3 +54,7 @@ python_version = "3.10"
 mypy_path = "src"
 strict = true
 exclude = "src/telecraft/tl/generated"
+
+[tool.telecalls]
+build_native_env = "TELECALLS_BUILD_NATIVE"
+build_native_command = "python -m telecraft.client.calls.native_build"

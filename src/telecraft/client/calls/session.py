@@ -5,12 +5,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from .state import CallEndReason, CallState, assert_transition
+from .crypto import CallCryptoContext
+from .state import TERMINAL_CALL_STATES, CallEndReason, CallState, assert_transition
+from .stats import CallStats
 from .types import PhoneCallRef
 
 StateHandler = Callable[[CallState], None]
 ErrorHandler = Callable[[Exception], None]
 SignalingHandler = Callable[[bytes], None]
+StatsHandler = Callable[[CallStats], None]
 
 
 @dataclass(slots=True)
@@ -19,20 +22,31 @@ class CallSession:
     access_hash: int
     incoming: bool
     manager: Any
+    video: bool = False
     state: CallState = CallState.IDLE
     end_reason: CallEndReason | None = None
-    retries: int = 0
+    retries: dict[str, int] = field(default_factory=dict)
     created_at: float = field(default_factory=time.monotonic)
     connected_at: float | None = None
     ended_at: float | None = None
+    muted: bool = False
+    crypto: CallCryptoContext | None = None
+    timers: dict[str, float] = field(default_factory=dict)
+    last_error: Exception | None = None
+    _stats: CallStats = field(default_factory=CallStats)
 
     _state_handlers: list[StateHandler] = field(default_factory=list)
     _error_handlers: list[ErrorHandler] = field(default_factory=list)
     _signaling_handlers: list[SignalingHandler] = field(default_factory=list)
+    _stats_handlers: list[StatsHandler] = field(default_factory=list)
 
     @property
     def ref(self) -> PhoneCallRef:
         return PhoneCallRef.from_parts(self.call_id, self.access_hash)
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.state in TERMINAL_CALL_STATES
 
     def on_state_change(self, handler: StateHandler) -> None:
         self._state_handlers.append(handler)
@@ -43,6 +57,9 @@ class CallSession:
     def on_signaling_data(self, handler: SignalingHandler) -> None:
         self._signaling_handlers.append(handler)
 
+    def on_stats(self, handler: StatsHandler) -> None:
+        self._stats_handlers.append(handler)
+
     async def accept(self) -> None:
         await self.manager.accept(self)
 
@@ -52,13 +69,27 @@ class CallSession:
     async def hangup(self) -> None:
         await self.manager.hangup(self)
 
+    async def mute(self, muted: bool) -> None:
+        self.muted = bool(muted)
+        await self.manager.mute(self, self.muted)
+
+    def stats(self) -> dict[str, float | None]:
+        return self._stats.as_dict()
+
+    def _set_timer_deadline(self, name: str, *, timeout: float) -> None:
+        self.timers[str(name)] = time.monotonic() + max(timeout, 0.0)
+
+    def _clear_timer_deadline(self, name: str) -> None:
+        self.timers.pop(str(name), None)
+
     def _transition(self, to_state: CallState) -> None:
         assert_transition(self.state, to_state)
         self.state = to_state
+        now = time.monotonic()
         if to_state == CallState.IN_CALL and self.connected_at is None:
-            self.connected_at = time.monotonic()
-        if to_state in {CallState.ENDED, CallState.FAILED}:
-            self.ended_at = time.monotonic()
+            self.connected_at = now
+        if to_state in TERMINAL_CALL_STATES:
+            self.ended_at = now
         for handler in list(self._state_handlers):
             try:
                 handler(to_state)
@@ -70,7 +101,8 @@ class CallSession:
         exc: Exception,
         reason: CallEndReason = CallEndReason.FAILED_INTERNAL,
     ) -> None:
-        if self.state not in {CallState.ENDED, CallState.FAILED}:
+        self.last_error = exc
+        if self.state not in TERMINAL_CALL_STATES:
             self.end_reason = reason
             self.state = CallState.FAILED
             self.ended_at = time.monotonic()
@@ -89,5 +121,13 @@ class CallSession:
         for handler in list(self._signaling_handlers):
             try:
                 handler(data)
+            except Exception:
+                continue
+
+    def _set_stats(self, stats: CallStats) -> None:
+        self._stats = stats
+        for handler in list(self._stats_handlers):
+            try:
+                handler(stats)
             except Exception:
                 continue

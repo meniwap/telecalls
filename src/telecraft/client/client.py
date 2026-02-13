@@ -31,7 +31,6 @@ class Client:
         enable_calls: bool = False,
         calls_config: dict[str, Any] | None = None,
     ) -> None:
-        _ = calls_config
         self.raw = (
             raw
             if raw is not None
@@ -48,7 +47,11 @@ class Client:
 
         self.peers = PeersAPI(self.raw)
         self.updates = UpdatesAPI(self.raw)
-        self.calls = CallsAPI(self.raw, enabled=enable_calls)
+        self.calls = CallsAPI(
+            self.raw,
+            enabled=enable_calls,
+            config=calls_config,
+        )
 
     @property
     def is_connected(self) -> bool:

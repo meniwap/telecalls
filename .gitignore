@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 dist/
 build/
+native/build/
 *.egg-info/
 .DS_Store
 
@@ -23,6 +24,7 @@ apps/env.sh
 # Runtime/debug artifacts
 reports/
 downloads/
+src/telecraft/client/calls/_engine_cffi.*
 
 # Temporary test files
 _temp_*.py

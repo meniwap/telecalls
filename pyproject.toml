@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "telecraft"
+version = "0.0.1"
+description = "Telegram MTProto client library (MTProto-first)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "cryptography>=42",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "ruff>=0.5",
+  "mypy>=1.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "unit: fast deterministic tests",
+  "live: live tests against Telegram",
+  "destructive: mutating live tests",
+  "requires_second_account: needs a second Telegram account",
+  "requires_business_account: needs a business-enabled Telegram account",
+  "live_core: core live lane without second account",
+  "live_second_account: live lane that requires explicit second account",
+  "live_optional: optional live lane (unstable/expensive)",
+  "live_paid: optional paid lane (spending operations)",
+  "live_business: optional business lane",
+  "live_chatlists: optional chatlists lane",
+  "live_stories_write: optional stories write lane",
+  "live_channel_admin: optional channel admin lane",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = [".venv", "src/telecraft/tl/generated"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+strict = true
+exclude = "src/telecraft/tl/generated"

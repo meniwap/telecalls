@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+
+# Local auth/session artifacts (never commit)
+.sessions/
+session.json
+*.session.json
+*.updates.json
+*.entities.json
+
+# Local env files (never commit)
+.env
+apps/env.sh
+
+# Runtime/debug artifacts
+reports/
+downloads/
+
+# Temporary test files
+_temp_*.py
+apps/_temp_*.py

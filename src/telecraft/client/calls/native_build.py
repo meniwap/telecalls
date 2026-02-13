@@ -45,6 +45,8 @@ ffibuilder.cdef(
         uint16_t port;
         const uint8_t *peer_tag;
         size_t peer_tag_len;
+        uint32_t flags;
+        uint32_t priority;
     } tc_endpoint_t;
 
     typedef struct tc_stats_t {
@@ -72,6 +74,18 @@ ffibuilder.cdef(
         size_t count
     );
     int tc_engine_poll_stats(tc_engine_t *engine, tc_stats_t *stats_out);
+    int tc_engine_set_mute(tc_engine_t *engine, int muted);
+    int tc_engine_set_bitrate_hint(tc_engine_t *engine, int bitrate_kbps);
+    int tc_engine_push_audio_frame(
+        tc_engine_t *engine,
+        const int16_t *pcm,
+        int frame_samples
+    );
+    int tc_engine_pull_audio_frame(
+        tc_engine_t *engine,
+        int16_t *pcm_out,
+        int frame_samples
+    );
     int tc_engine_stop(tc_engine_t *engine);
     void tc_engine_destroy(tc_engine_t *engine);
     """

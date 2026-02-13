@@ -21,7 +21,7 @@ from telecraft.tl.generated.types import (
     PhoneCallDiscardReasonHangup,
 )
 
-from .types import PhoneCallRef, build_input_phone_call, default_protocol
+from .types import CallProtocolSettings, PhoneCallRef, build_input_phone_call, default_protocol
 
 
 class CallSignalingAdapter:
@@ -37,6 +37,7 @@ class CallSignalingAdapter:
         *,
         g_a_hash: bytes = b"",
         video: bool = False,
+        protocol: CallProtocolSettings | None = None,
         timeout: float = 20.0,
     ) -> Any:
         user = await self._resolve_input_user(peer, timeout=timeout)
@@ -47,7 +48,7 @@ class CallSignalingAdapter:
                 user_id=user,
                 random_id=randbits(31),
                 g_a_hash=bytes(g_a_hash),
-                protocol=default_protocol(),
+                protocol=default_protocol(protocol),
             ),
             timeout=timeout,
         )
@@ -59,13 +60,14 @@ class CallSignalingAdapter:
         ref: PhoneCallRef,
         *,
         g_b: bytes = b"",
+        protocol: CallProtocolSettings | None = None,
         timeout: float = 20.0,
     ) -> Any:
         res = await self._raw.invoke_api(
             PhoneAcceptCall(
                 peer=build_input_phone_call(ref),
                 g_b=bytes(g_b),
-                protocol=default_protocol(),
+                protocol=default_protocol(protocol),
             ),
             timeout=timeout,
         )
@@ -78,6 +80,7 @@ class CallSignalingAdapter:
         *,
         key_fingerprint: int,
         g_a: bytes = b"",
+        protocol: CallProtocolSettings | None = None,
         timeout: float = 20.0,
     ) -> Any:
         res = await self._raw.invoke_api(
@@ -85,7 +88,7 @@ class CallSignalingAdapter:
                 peer=build_input_phone_call(ref),
                 g_a=bytes(g_a),
                 key_fingerprint=int(key_fingerprint),
-                protocol=default_protocol(),
+                protocol=default_protocol(protocol),
             ),
             timeout=timeout,
         )

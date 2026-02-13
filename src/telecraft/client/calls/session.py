@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -33,7 +34,12 @@ class CallSession:
     crypto: CallCryptoContext | None = None
     timers: dict[str, float] = field(default_factory=dict)
     last_error: Exception | None = None
+    native_key_attached: bool = False
+    last_remote_event: str | None = None
+    audio_backend: Any | None = None
     _stats: CallStats = field(default_factory=CallStats)
+    _signaling_seen_order: deque[bytes] = field(default_factory=deque)
+    _signaling_seen_set: set[bytes] = field(default_factory=set)
 
     _state_handlers: list[StateHandler] = field(default_factory=list)
     _error_handlers: list[ErrorHandler] = field(default_factory=list)
@@ -131,3 +137,22 @@ class CallSession:
                 handler(stats)
             except Exception:
                 continue
+
+    def _remember_remote_event(self, event_name: str) -> None:
+        self.last_remote_event = str(event_name)
+
+    def _is_duplicate_signaling(self, digest: bytes, *, max_history: int) -> bool:
+        if digest in self._signaling_seen_set:
+            return True
+
+        self._signaling_seen_order.append(digest)
+        self._signaling_seen_set.add(digest)
+
+        while len(self._signaling_seen_order) > max(1, int(max_history)):
+            evicted = self._signaling_seen_order.popleft()
+            self._signaling_seen_set.discard(evicted)
+        return False
+
+    def _clear_signaling_history(self) -> None:
+        self._signaling_seen_order.clear()
+        self._signaling_seen_set.clear()

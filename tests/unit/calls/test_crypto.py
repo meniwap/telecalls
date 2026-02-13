@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from telecraft.client.calls.crypto import CallCryptoContext, CallCryptoError
+from telecraft.client.calls.crypto import CallCryptoContext, CallCryptoError, CallCryptoProfile
 
 
 def test_crypto_roundtrip_outgoing_incoming() -> None:
@@ -35,4 +35,11 @@ def test_apply_final_public_verifies_fingerprint() -> None:
         outgoing.apply_final_public(
             incoming.g_b,
             expected_fingerprint=outgoing_material.key_fingerprint + 1,
+        )
+
+
+def test_invalid_profile_is_rejected() -> None:
+    with pytest.raises(CallCryptoError):
+        CallCryptoContext.new_outgoing(
+            CallCryptoProfile(g=3, dh_prime=(1).to_bytes(256, "big"))
         )

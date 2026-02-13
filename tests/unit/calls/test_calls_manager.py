@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 from typing import Any
 
@@ -62,6 +63,23 @@ class _Raw:
                 chats=[],
             )
 
+        if name == "phone.getCallConfig":
+            return SimpleNamespace(
+                TL_NAME="dataJSON",
+                data=json.dumps(
+                    {
+                        "protocol": {
+                            "udp_p2p": True,
+                            "udp_reflector": True,
+                            "min_layer": 100,
+                            "max_layer": 201,
+                            "library_versions": ["remote-lib"],
+                        },
+                        "call_connect_timeout_ms": 12000,
+                    }
+                ),
+            )
+
         if name in {"phone.acceptCall", "phone.confirmCall"}:
             return SimpleNamespace(
                 phone_call=SimpleNamespace(
@@ -118,6 +136,15 @@ def test_calls_manager_incoming_and_signaling_update() -> None:
         assert incoming[0].state == CallState.RINGING_IN
         assert incoming[0].crypto is not None
         assert incoming[0].crypto.role == "incoming"
+
+        await q.put(
+            SimpleNamespace(
+                TL_NAME="updatePhoneCallSignalingData",
+                phone_call_id=101,
+                data=b"abc",
+            )
+        )
+        await asyncio.sleep(0.02)
 
         await q.put(
             SimpleNamespace(
@@ -209,6 +236,10 @@ def test_outgoing_call_moves_to_connecting() -> None:
         assert session.access_hash == 654
         assert session.state == CallState.CONNECTING
         assert session.crypto is not None
+        assert manager._protocol_settings.udp_p2p is False
+        assert manager._protocol_settings.udp_reflector is True
+        assert manager._protocol_settings.min_layer == 100
+        assert manager._protocol_settings.max_layer == 201
 
     asyncio.run(_case())
 

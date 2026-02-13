@@ -1,6 +1,7 @@
 # telecalls
 
-Minimal MTProto-first Telegram calls signaling library (Mac-first, no audio engine yet).
+MTProto-first Telegram calls library (Mac-first) with signaling, handshake crypto, and
+native transport/audio building blocks.
 
 ## Scope (current)
 
@@ -9,13 +10,15 @@ Minimal MTProto-first Telegram calls signaling library (Mac-first, no audio engi
 - call signaling state machine
 - incoming/outgoing call sessions
 - handshake crypto (DH + key fingerprint verification)
-- optional native transport skeleton (`native/` + `cffi` bridge)
+- runtime call-config parsing (`phone.getCallConfig`)
+- optional native transport (`native/` + `cffi` bridge)
+- Opus codec path in native engine (when `libopus` is available)
+- optional PortAudio backend (`audio_enabled=True`)
 
 ## Not in scope (current)
 
-- audio capture/playback
-- VoIP media engine binding
-- platform-specific audio backends
+- complete Telegram VoIP media compatibility yet (work in progress)
+- production-grade reconnect/fallback tuning
 
 ## Quick start
 
@@ -38,6 +41,23 @@ call = await client.calls.call("@username", video=False)
 await call.hangup()
 
 await client.close()
+```
+
+### Audio-enabled call example (macOS/Linux with PortAudio)
+
+```python
+client = Client(
+    network="prod",
+    session_path=".sessions/prod_dc4.session.json",
+    init=ClientInit(api_id=12345, api_hash="..."),
+    enable_calls=True,
+    calls_config={
+        "native_bridge_enabled": True,
+        "audio_enabled": True,
+        "audio_backend": "portaudio",
+        "allow_p2p": False,  # relay-first default
+    },
+)
 ```
 
 ## Development
@@ -73,5 +93,5 @@ TELECALLS_BUILD_NATIVE=1 python tools/build_native.py
 ```bash
 python tools/smoke_login.py --network prod
 python tools/smoke_get_me.py --network prod --session .sessions/prod_dc2.session.json
-python tools/smoke_call_handshake.py --network prod --session .sessions/prod_dc2.session.json --peer @username
+python tools/smoke_call_handshake.py --network prod --session .sessions/prod_dc2.session.json --peer @username --runs 20
 ```

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import dataclass
+from functools import lru_cache
 
 from telecraft.mtproto.crypto.hashes import sha1, sha256
 
@@ -24,6 +25,10 @@ _DEFAULT_DH_PRIME_HEX = (
     "FFFFFF"
 )
 
+_VALID_GENERATORS: set[int] = {2, 3, 4, 5, 7}
+_MILLER_RABIN_BASES: tuple[int, ...] = (2, 3, 5, 7, 11, 13, 17)
+_SMALL_PRIMES: tuple[int, ...] = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29)
+
 
 def _to_int(data: bytes) -> int:
     return int.from_bytes(data, "big", signed=False)
@@ -33,6 +38,55 @@ def _to_be(data: int, *, size: int) -> bytes:
     if data < 0:
         raise CallCryptoError("negative integer")
     return int(data).to_bytes(size, "big", signed=False)
+
+
+def _decompose_for_miller_rabin(n: int) -> tuple[int, int]:
+    d = n - 1
+    r = 0
+    while d % 2 == 0:
+        d //= 2
+        r += 1
+    return d, r
+
+
+def _is_probable_prime(n: int) -> bool:
+    if n < 2:
+        return False
+    for p in _SMALL_PRIMES:
+        if n == p:
+            return True
+        if n % p == 0:
+            return False
+    d, r = _decompose_for_miller_rabin(n)
+    for a in _MILLER_RABIN_BASES:
+        if a >= n:
+            continue
+        x = pow(a, d, n)
+        if x in {1, n - 1}:
+            continue
+        witness = True
+        for _ in range(r - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                witness = False
+                break
+        if witness:
+            return False
+    return True
+
+
+@lru_cache(maxsize=8)
+def _is_valid_prime_group(prime_hex: str) -> bool:
+    try:
+        p = int(prime_hex, 16)
+    except ValueError:
+        return False
+    if p <= 0 or p.bit_length() < 2048:
+        return False
+    if not _is_probable_prime(p):
+        return False
+    q = (p - 1) // 2
+    return _is_probable_prime(q)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,9 +102,18 @@ class CallCryptoProfile:
     def p_size(self) -> int:
         return len(self.dh_prime)
 
+    def validate(self) -> None:
+        if self.g not in _VALID_GENERATORS:
+            raise CallCryptoError(f"unsupported DH generator: {self.g}")
+        prime_hex = self.dh_prime.hex()
+        if not _is_valid_prime_group(prime_hex):
+            raise CallCryptoError("invalid DH prime group")
+
 
 def default_crypto_profile() -> CallCryptoProfile:
-    return CallCryptoProfile(g=3, dh_prime=bytes.fromhex(_DEFAULT_DH_PRIME_HEX))
+    profile = CallCryptoProfile(g=3, dh_prime=bytes.fromhex(_DEFAULT_DH_PRIME_HEX))
+    profile.validate()
+    return profile
 
 
 @dataclass(slots=True)
@@ -72,6 +135,7 @@ class CallCryptoContext:
     @classmethod
     def new_outgoing(cls, profile: CallCryptoProfile | None = None) -> CallCryptoContext:
         p = profile if profile is not None else default_crypto_profile()
+        p.validate()
         secret = cls._new_secret(p)
         g_a_int = pow(p.g, secret, p.p)
         g_a = _to_be(g_a_int, size=p.p_size)
@@ -90,6 +154,7 @@ class CallCryptoContext:
         profile: CallCryptoProfile | None = None,
     ) -> CallCryptoContext:
         p = profile if profile is not None else default_crypto_profile()
+        p.validate()
         if len(g_a_hash) != 32:
             raise CallCryptoError("phoneCallRequested.g_a_hash must be 32 bytes")
         secret = cls._new_secret(p)
@@ -187,10 +252,9 @@ class CallCryptoContext:
         self._key_fingerprint = None
 
     def _derive_shared_key(self, *, remote_public: bytes) -> CallKeyMaterial:
+        self._validate_public_value(remote_public)
         remote = _to_int(remote_public)
         p = self.profile.p
-        if remote <= 1 or remote >= (p - 1):
-            raise CallCryptoError("remote public value is outside DH range")
         if self._secret <= 1:
             raise CallCryptoError("local secret is not initialized")
 
@@ -199,4 +263,21 @@ class CallCryptoContext:
         key_fingerprint = int.from_bytes(sha1(bytes(auth_key))[-8:], "little", signed=True)
         self._shared_key = auth_key
         self._key_fingerprint = key_fingerprint
+        # Secret is no longer required after key agreement.
+        self._secret = 0
         return CallKeyMaterial(auth_key=bytes(auth_key), key_fingerprint=key_fingerprint)
+
+    def _validate_public_value(self, public_value: bytes) -> None:
+        if len(public_value) > self.profile.p_size:
+            raise CallCryptoError("remote public value is too large")
+        remote = _to_int(public_value)
+        p = self.profile.p
+        if remote <= 1 or remote >= (p - 1):
+            raise CallCryptoError("remote public value is outside DH range")
+
+        # Telegram-style guard: avoid values too close to group edges.
+        bits = p.bit_length()
+        lower_bound = 1 << max(0, bits - 64)
+        upper_bound = p - lower_bound
+        if remote <= lower_bound or remote >= upper_bound:
+            raise CallCryptoError("remote public value failed security bounds")

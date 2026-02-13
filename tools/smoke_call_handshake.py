@@ -40,44 +40,57 @@ async def _run(args: argparse.Namespace) -> int:
 
     await client.connect(timeout=args.timeout)
     try:
-        call = await client.calls.call(args.peer, video=args.video, timeout=args.timeout)
-        terminal_event = asyncio.Event()
-        result: dict[str, Any] = {"states": [call.state.value]}
+        successes = 0
+        failures = 0
 
-        def _on_state(state: CallState) -> None:
-            result["states"].append(state.value)
-            print({"state": state.value, "call_id": call.call_id})
-            if state in {CallState.IN_CALL, CallState.ENDED, CallState.FAILED}:
+        for attempt in range(1, args.runs + 1):
+            call = await client.calls.call(args.peer, video=args.video, timeout=args.timeout)
+            terminal_event = asyncio.Event()
+            result: dict[str, Any] = {"states": [call.state.value]}
+
+            def _on_state(state: CallState) -> None:
+                result["states"].append(state.value)
+                print({"attempt": attempt, "state": state.value, "call_id": call.call_id})
+                if state in {CallState.IN_CALL, CallState.ENDED, CallState.FAILED}:
+                    terminal_event.set()
+
+            def _on_error(exc: Exception) -> None:
+                result["error"] = repr(exc)
+                print({"attempt": attempt, "error": repr(exc), "call_id": call.call_id})
                 terminal_event.set()
 
-        def _on_error(exc: Exception) -> None:
-            result["error"] = repr(exc)
-            print({"error": repr(exc), "call_id": call.call_id})
-            terminal_event.set()
+            call.on_state_change(_on_state)
+            call.on_error(_on_error)
 
-        call.on_state_change(_on_state)
-        call.on_error(_on_error)
+            await asyncio.wait_for(terminal_event.wait(), timeout=args.timeout)
+            if call.state == CallState.IN_CALL:
+                successes += 1
+                await asyncio.sleep(args.hold_seconds)
+                await call.hangup()
+                print(
+                    {
+                        "attempt": attempt,
+                        "result": "in_call_then_hangup",
+                        "call_id": call.call_id,
+                    }
+                )
+                continue
 
-        await asyncio.wait_for(terminal_event.wait(), timeout=args.timeout)
-
-        if call.state == CallState.IN_CALL:
-            await asyncio.sleep(args.hold_seconds)
-            await call.hangup()
-            print({"result": "in_call_then_hangup", "call_id": call.call_id})
-            return 0
-
-        if call.state == CallState.ENDED:
+            failures += 1
             print(
                 {
-                    "result": "ended_before_in_call",
+                    "attempt": attempt,
+                    "result": "failed_before_in_call",
                     "call_id": call.call_id,
+                    "state": call.state.value,
                     "reason": call.end_reason,
                 }
             )
-            return 1
+            if args.fail_fast:
+                break
 
-        print({"result": "failed", "call_id": call.call_id, "reason": call.end_reason})
-        return 1
+        print({"runs": args.runs, "successes": successes, "failures": failures})
+        return 0 if failures == 0 else 1
     finally:
         await client.close()
 
@@ -91,6 +104,8 @@ def main() -> int:
     parser.add_argument("--session", type=str, default=".sessions/prod_dc2.session.json")
     parser.add_argument("--timeout", type=float, default=40.0)
     parser.add_argument("--hold-seconds", type=float, default=1.0)
+    parser.add_argument("--runs", type=int, default=20)
+    parser.add_argument("--fail-fast", action="store_true")
     parser.add_argument("--video", action="store_true")
     parser.add_argument("--native", action="store_true", help="Enable native bridge if available")
     parser.add_argument("--api-id", type=int, default=None)

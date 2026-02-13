@@ -1,6 +1,6 @@
 # Telecalls Call Protocol Baseline
 
-This document locks the signaling/FSM baseline used by `telecalls` before full media support.
+This document locks the signaling/FSM/media baseline used by `telecalls`.
 
 ## Scope
 
@@ -13,7 +13,8 @@ This document locks the signaling/FSM baseline used by `telecalls` before full m
   - `phone.receivedCall`
   - `phone.sendSignalingData`
   - `phone.discardCall`
-- No audio backend in this phase.
+- Native transport is enabled through `native/` + `cffi`.
+- Audio backend can be enabled with `calls_config.audio_enabled=True`.
 
 ## FSM
 
@@ -39,6 +40,18 @@ Timeout policy:
 - `updatePhoneCall` carries all call-state transitions.
 - `updatePhoneCallSignalingData` is routed to the target `CallSession`.
 - Unknown call IDs are kept in a dead-letter buffer; receiver must not crash.
+- Duplicate updates and duplicate signaling blobs are dropped idempotently.
+
+## Runtime Call Config
+
+- `phone.getCallConfig` is fetched at startup and periodically refreshed.
+- Parsed runtime fields:
+  - protocol (`udp_p2p`, `udp_reflector`, `min_layer`, `max_layer`, `library_versions`)
+  - connect timeout (`call_connect_timeout_ms` or aliases)
+  - packet timeout (`packet_timeout_ms` or aliases)
+- Local policy overrides:
+  - relay-first by default
+  - p2p disabled by default unless `calls_config.allow_p2p=True`
 
 ## Handshake Order
 
@@ -75,6 +88,14 @@ Python never depends on native runtime for signaling correctness:
 
 - native disabled or unavailable -> no-op/mock bridge.
 - native available -> engine receives signaling blobs and reports stats.
+
+Engine responsibilities:
+
+- UDP keepalive send/recv loop.
+- Endpoint selection policy (relay-first).
+- Stats (`rtt`, `loss`, `bitrate`, `jitter`).
+- Opus encode/decode path (when `libopus` is available).
+- Local audio frame queue (`push_audio_frame`/`pull_audio_frame`).
 
 ## Security Constraints
 

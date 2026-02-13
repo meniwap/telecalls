@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .audio import AudioBackend, NullAudioBackend, PcmCallback
+from .audio import AudioBackend, NullAudioBackend, PcmCallback, PortAudioBackend, PortAudioError
 from .crypto import CallCryptoContext, CallCryptoError, CallKeyMaterial, default_crypto_profile
 from .errors import (
     CallInternalError,
@@ -18,11 +18,19 @@ from .session import CallSession
 from .signaling import CallSignalingAdapter
 from .state import CallEndReason, CallState
 from .stats import CallStats
-from .types import PhoneCallRef, build_input_phone_call, default_protocol
+from .types import (
+    CallConfig,
+    CallProtocolSettings,
+    PhoneCallRef,
+    build_input_phone_call,
+    default_protocol,
+    parse_call_config,
+)
 
 __all__ = [
     "CallCryptoContext",
     "CallCryptoError",
+    "CallConfig",
     "CallEndReason",
     "CallInternalError",
     "CallKeyMaterial",
@@ -39,12 +47,16 @@ __all__ = [
     "CallsManager",
     "CallsManagerConfig",
     "NativeBridge",
+    "CallProtocolSettings",
     "AudioBackend",
     "NullAudioBackend",
+    "PortAudioBackend",
+    "PortAudioError",
     "PhoneCallRef",
     "PcmCallback",
     "SignalingDataError",
     "build_input_phone_call",
     "default_crypto_profile",
     "default_protocol",
+    "parse_call_config",
 ]

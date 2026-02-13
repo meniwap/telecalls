@@ -27,6 +27,20 @@ def test_parse_call_config_extracts_protocol_and_timeouts() -> None:
     assert parsed.packet_timeout_seconds == 8.0
 
 
+def test_parse_call_config_accepts_datajson_bytes_payload() -> None:
+    obj = SimpleNamespace(
+        TL_NAME="dataJSON",
+        data=b'{"protocol":{"udp_p2p":false,"udp_reflector":true,"min_layer":140,"max_layer":211}}',
+    )
+
+    parsed = parse_call_config(obj)
+
+    assert parsed.protocol.udp_p2p is False
+    assert parsed.protocol.udp_reflector is True
+    assert parsed.protocol.min_layer == 140
+    assert parsed.protocol.max_layer == 211
+
+
 def test_protocol_from_call_config_defaults_when_missing() -> None:
     protocol = protocol_from_call_config({})
 

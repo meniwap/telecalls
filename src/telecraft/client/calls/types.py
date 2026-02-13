@@ -5,7 +5,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, cast
 
-from telecraft.schema.pinned_layer import LAYER
 from telecraft.tl.generated.types import InputPhoneCall, PhoneCallProtocol
 
 
@@ -23,9 +22,10 @@ class PhoneCallRef:
 class CallProtocolSettings:
     udp_p2p: bool = False
     udp_reflector: bool = True
-    min_layer: int = max(0, LAYER - 8)
-    max_layer: int = LAYER
-    library_versions: tuple[str, ...] = ("telecalls-signaling",)
+    # Voice-call protocol layers are independent from the MTProto API schema layer.
+    min_layer: int = 65
+    max_layer: int = 92
+    library_versions: tuple[str, ...] = ("2.4.4", "2.7.7", "2.8.8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,8 +86,8 @@ def protocol_from_call_config(config: Mapping[str, Any] | None) -> CallProtocolS
     udp_p2p = _read_bool(protocol_obj, "udp_p2p", default=False)
     udp_reflector = _read_bool(protocol_obj, "udp_reflector", default=True)
 
-    min_layer = _read_int(protocol_obj, "min_layer", default=max(0, LAYER - 8))
-    max_layer = _read_int(protocol_obj, "max_layer", default=LAYER)
+    min_layer = _read_int(protocol_obj, "min_layer", default=65)
+    max_layer = _read_int(protocol_obj, "max_layer", default=92)
     if min_layer < 0:
         min_layer = 0
     if max_layer < min_layer:
@@ -95,7 +95,7 @@ def protocol_from_call_config(config: Mapping[str, Any] | None) -> CallProtocolS
 
     versions = _read_library_versions(protocol_obj)
     if not versions:
-        versions = ("telecalls-signaling",)
+        versions = ("2.4.4", "2.7.7", "2.8.8")
 
     return CallProtocolSettings(
         udp_p2p=udp_p2p,
@@ -113,8 +113,18 @@ def _coerce_data_json(data_json: Any) -> dict[str, Any]:
         return dict(cast(Mapping[str, Any], data_json))
 
     payload = getattr(data_json, "data", None)
+    if isinstance(payload, (bytes, bytearray)):
+        try:
+            return _parse_json_object(bytes(payload).decode("utf-8"))
+        except UnicodeDecodeError:
+            return {}
     if isinstance(payload, str):
         return _parse_json_object(payload)
+    if isinstance(data_json, (bytes, bytearray)):
+        try:
+            return _parse_json_object(bytes(data_json).decode("utf-8"))
+        except UnicodeDecodeError:
+            return {}
     if isinstance(data_json, str):
         return _parse_json_object(data_json)
     return {}

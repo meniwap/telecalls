@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from telecraft.client.calls.crypto import CallCryptoContext
+from telecraft.client.calls.crypto import CallCryptoContext, default_crypto_profile
 from telecraft.client.calls.errors import SignalingDataError
 from telecraft.client.calls.manager import CallsManager, CallsManagerConfig
 from telecraft.client.calls.session import CallSession
@@ -49,6 +49,16 @@ class _Raw:
         _ = timeout
         name = getattr(req, "TL_NAME", type(req).__name__)
         self.calls.append(str(name))
+
+        if name == "messages.getDhConfig":
+            profile = default_crypto_profile()
+            return SimpleNamespace(
+                TL_NAME="messages.dhConfig",
+                g=profile.g,
+                p=profile.dh_prime,
+                version=7,
+                random=b"",
+            )
 
         if name == "phone.requestCall":
             return SimpleNamespace(
@@ -236,6 +246,7 @@ def test_outgoing_call_moves_to_connecting() -> None:
         assert session.access_hash == 654
         assert session.state == CallState.CONNECTING
         assert session.crypto is not None
+        assert manager._dh_config_version == 7
         assert manager._protocol_settings.udp_p2p is False
         assert manager._protocol_settings.udp_reflector is True
         assert manager._protocol_settings.min_layer == 100

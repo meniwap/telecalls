@@ -16,7 +16,7 @@ from telecraft.tl.generated.types import (
 )
 
 from .audio import NullAudioBackend, PortAudioBackend
-from .crypto import CallCryptoContext, CallCryptoError, default_crypto_profile
+from .crypto import CallCryptoContext, CallCryptoError, CallCryptoProfile, default_crypto_profile
 from .errors import (
     CallProtocolError,
     CallsDisabledError,
@@ -78,14 +78,14 @@ class CallsManagerConfig:
     max_retries: int = 2
     retry_backoff: float = 0.35
     native_bridge_enabled: bool = False
-    native_test_mode: bool = True
+    native_test_mode: bool = False
     allow_p2p: bool = False
     force_udp_reflector: bool = True
     max_signaling_history: int = 128
     update_dedupe_window_seconds: float = 300.0
     call_config_refresh_seconds: float = 300.0
     structured_logs: bool = True
-    library_version: str = "telecalls-signaling"
+    library_version: str = "2.4.4"
     bitrate_hint_kbps: int = 24
     audio_enabled: bool = False
     audio_backend: str = "null"
@@ -104,7 +104,7 @@ class CallsManagerConfig:
             max_retries=int(mapping.get("max_retries", 2)),
             retry_backoff=float(mapping.get("retry_backoff", 0.35)),
             native_bridge_enabled=bool(mapping.get("native_bridge_enabled", False)),
-            native_test_mode=bool(mapping.get("native_test_mode", True)),
+            native_test_mode=bool(mapping.get("native_test_mode", False)),
             allow_p2p=bool(mapping.get("allow_p2p", False)),
             force_udp_reflector=bool(mapping.get("force_udp_reflector", True)),
             max_signaling_history=int(mapping.get("max_signaling_history", 128)),
@@ -113,7 +113,7 @@ class CallsManagerConfig:
             ),
             call_config_refresh_seconds=float(mapping.get("call_config_refresh_seconds", 300.0)),
             structured_logs=bool(mapping.get("structured_logs", True)),
-            library_version=str(mapping.get("library_version", "telecalls-signaling")),
+            library_version=str(mapping.get("library_version", "2.4.4")),
             bitrate_hint_kbps=int(mapping.get("bitrate_hint_kbps", 24)),
             audio_enabled=bool(mapping.get("audio_enabled", False)),
             audio_backend=str(mapping.get("audio_backend", "null")),
@@ -148,6 +148,8 @@ class CallsManager:
         self._seen_update_order: deque[tuple[str, float]] = deque()
 
         self._crypto_profile = default_crypto_profile()
+        self._dh_config_version = 0
+        self._dh_profile_last_refresh: float = 0.0
         self._call_config: CallConfig | None = None
         self._call_config_last_refresh: float = 0.0
         self._protocol_settings = CallProtocolSettings(
@@ -192,6 +194,7 @@ class CallsManager:
         if not self._enabled:
             return
         await self._raw.start_updates()
+        await self._refresh_dh_profile(force=True)
         await self._refresh_call_config(force=True)
         if self._updates_task is not None:
             return
@@ -424,6 +427,7 @@ class CallsManager:
             await self._flush_native_signaling()
             self._refresh_native_stats()
             self._prune_seen_update_keys()
+            await self._refresh_dh_profile(force=False)
             await self._refresh_call_config(force=False)
 
     async def _handle_update(self, update: Any) -> None:
@@ -645,6 +649,57 @@ class CallsManager:
             stats = self._native_bridge.poll_stats(session.call_id)
             if stats is not None:
                 session._set_stats(stats)
+
+    async def _refresh_dh_profile(self, *, force: bool) -> None:
+        now = time.monotonic()
+        if not force and (
+            now - self._dh_profile_last_refresh
+        ) < self._config.call_config_refresh_seconds:
+            return
+
+        try:
+            result = await self._signaling.get_dh_config(
+                version=self._dh_config_version,
+                random_length=0,
+                timeout=self._config.request_timeout,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._log(logging.DEBUG, "call.dh_config_fetch_failed", error=repr(exc))
+            return
+
+        tl_name = str(getattr(result, "TL_NAME", ""))
+        if tl_name == "messages.dhConfigNotModified":
+            self._dh_profile_last_refresh = now
+            return
+        if tl_name != "messages.dhConfig":
+            self._log(logging.DEBUG, "call.dh_config_unexpected", tl_name=tl_name)
+            return
+
+        g = getattr(result, "g", None)
+        dh_prime = getattr(result, "p", None)
+        version = getattr(result, "version", None)
+        if not isinstance(g, int) or not isinstance(dh_prime, (bytes, bytearray)):
+            self._log(logging.WARNING, "call.dh_config_malformed", tl_name=tl_name)
+            return
+
+        try:
+            profile = CallCryptoProfile(g=int(g), dh_prime=bytes(dh_prime))
+            profile.validate()
+        except Exception as exc:  # noqa: BLE001
+            self._log(logging.WARNING, "call.dh_config_invalid", error=repr(exc))
+            return
+
+        self._crypto_profile = profile
+        if isinstance(version, int):
+            self._dh_config_version = int(version)
+        self._dh_profile_last_refresh = now
+        self._log(
+            logging.INFO,
+            "call.dh_config_loaded",
+            dh_version=self._dh_config_version,
+            g=profile.g,
+            p_len=profile.p_size,
+        )
 
     async def _refresh_call_config(self, *, force: bool) -> None:
         now = time.monotonic()

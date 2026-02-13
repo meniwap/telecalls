@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from telecraft.client.calls.crypto import CallCryptoContext, CallCryptoError, CallCryptoProfile
+from telecraft.client.calls.crypto import (
+    CallCryptoContext,
+    CallCryptoError,
+    CallCryptoProfile,
+    default_crypto_profile,
+)
 
 
 def test_crypto_roundtrip_outgoing_incoming() -> None:
@@ -43,3 +48,10 @@ def test_invalid_profile_is_rejected() -> None:
         CallCryptoContext.new_outgoing(
             CallCryptoProfile(g=3, dh_prime=(1).to_bytes(256, "big"))
         )
+
+
+def test_default_profile_uses_telegram_good_prime() -> None:
+    profile = default_crypto_profile()
+    assert profile.g == 3
+    assert profile.p_size == 256
+    assert profile.dh_prime[:16].hex() == "c71caeb9c6b1c9048e6c522f70f13f73"

@@ -34,7 +34,7 @@ async def _run(args: argparse.Namespace) -> int:
         enable_calls=True,
         calls_config={
             "native_bridge_enabled": args.native,
-            "native_test_mode": True,
+            "native_test_mode": args.native,
         },
     )
 

@@ -7,6 +7,7 @@ from telecraft.client.entities import EntityCacheError
 from telecraft.client.mtproto import MtprotoClient
 from telecraft.client.peers import PeerRef
 from telecraft.tl.generated.functions import (
+    MessagesGetDhConfig,
     PhoneAcceptCall,
     PhoneConfirmCall,
     PhoneDiscardCall,
@@ -27,6 +28,21 @@ from .types import CallProtocolSettings, PhoneCallRef, build_input_phone_call, d
 class CallSignalingAdapter:
     def __init__(self, raw: MtprotoClient) -> None:
         self._raw = raw
+
+    async def get_dh_config(
+        self,
+        *,
+        version: int = 0,
+        random_length: int = 0,
+        timeout: float = 20.0,
+    ) -> Any:
+        return await self._raw.invoke_api(
+            MessagesGetDhConfig(
+                version=int(version),
+                random_length=int(random_length),
+            ),
+            timeout=timeout,
+        )
 
     async def get_call_config(self, *, timeout: float = 20.0) -> Any:
         return await self._raw.invoke_api(PhoneGetCallConfig(), timeout=timeout)

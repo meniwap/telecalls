@@ -27,7 +27,6 @@
 #define TC_ENDPOINT_FLAG_P2P (1U << 1)
 
 #define TC_UDP_KEEPALIVE_INTERVAL_MS 250U
-#define TC_SIGNALING_KEEPALIVE_INTERVAL_MS 1000U
 #define TC_UDP_RECV_TIMEOUT_MS 40
 #define TC_IDLE_SLEEP_MS 20
 #define TC_MAGIC 0x54434D31U /* "TCM1" */
@@ -288,25 +287,6 @@ static void tc_update_bitrate_locked(tc_engine_t *engine, uint64_t now_ms) {
     engine->window_started_ms = now_ms;
 }
 
-static void tc_emit_periodic_signaling(tc_engine_t *engine, uint64_t now_ms) {
-    char payload[96];
-    int n = 0;
-
-    if ((now_ms - engine->last_signaling_emit_ms) < TC_SIGNALING_KEEPALIVE_INTERVAL_MS) {
-        return;
-    }
-
-    n = snprintf(payload, sizeof(payload), "tc.sig.keepalive:%u:%llu", engine->local_seq,
-                 (unsigned long long)now_ms);
-    if (n <= 0) {
-        return;
-    }
-
-    if (tc_signaling_queue_push(engine, (const uint8_t *)payload, (size_t)n) == TC_ENGINE_OK) {
-        engine->last_signaling_emit_ms = now_ms;
-    }
-}
-
 static int tc_pick_active_endpoint_locked(tc_engine_t *engine, tc_endpoint_runtime *out) {
     size_t i = 0U;
     int found = 0;
@@ -421,7 +401,6 @@ static void *tc_worker_main(void *arg) {
         state = engine->state;
         has_active_endpoint = tc_pick_active_endpoint_locked(engine, &active);
         if (state == TC_ENGINE_STATE_RUNNING) {
-            tc_emit_periodic_signaling(engine, now_ms);
             tc_update_bitrate_locked(engine, now_ms);
         }
         pthread_mutex_unlock(&engine->mu);

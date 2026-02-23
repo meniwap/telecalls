@@ -45,7 +45,7 @@ def main() -> int:
         "--dc",
         type=int,
         choices=sorted(TEST_DCS.keys()),
-        default=2,
+        default=1,
         help="Test DC number",
     )
     p.add_argument("--host", type=str, default=None, help="Override host (disables --dc mapping)")

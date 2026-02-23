@@ -13,6 +13,8 @@
 
 int tc_udp_open(tc_udp_socket_t *sock) {
     int fd = -1;
+    int rcvbuf = 512 * 1024;
+    int sndbuf = 512 * 1024;
     struct sockaddr_in local_addr;
 
     if (sock == NULL) {
@@ -33,6 +35,9 @@ int tc_udp_open(tc_udp_socket_t *sock) {
         close(fd);
         return -1;
     }
+
+    (void)setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+    (void)setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
 
     if (fcntl(fd, F_SETFL, O_NONBLOCK) != 0) {
         close(fd);
@@ -74,6 +79,9 @@ int tc_udp_send(
 
     rc = sendto(sock->fd, data, len, 0, (const struct sockaddr *)&addr, sizeof(addr));
     if (rc < 0) {
+        if (errno == EWOULDBLOCK || errno == EAGAIN) {
+            return 0;
+        }
         return -1;
     }
     return (int)rc;

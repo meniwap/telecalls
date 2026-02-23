@@ -25,7 +25,9 @@ apps/env.sh
 reports/
 downloads/
 src/telecraft/client/calls/_engine_cffi.*
+src/telecraft/client/calls/_tgcalls_cffi.*
 
 # Temporary test files
 _temp_*.py
 apps/_temp_*.py
+.tmp/

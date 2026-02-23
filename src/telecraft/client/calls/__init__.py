@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .audio import AudioBackend, NullAudioBackend, PcmCallback, PortAudioBackend, PortAudioError
 from .crypto import CallCryptoContext, CallCryptoError, CallKeyMaterial, default_crypto_profile
+from .crypto_mtproto2 import MtProto2VoipError, decrypt_short_packet, encrypt_short_packet, kdf2
 from .errors import (
     CallInternalError,
     CallMediaError,
@@ -14,6 +15,28 @@ from .errors import (
 )
 from .manager import CallsManager, CallsManagerConfig
 from .native_bridge import NativeBridge
+from .proto import (
+    EXTRA_TYPE_NETWORK_CHANGED,
+    EXTRA_TYPE_STREAM_FLAGS,
+    MIN_PROTOCOL_VERSION,
+    PKT_INIT,
+    PKT_INIT_ACK,
+    PKT_NOP,
+    PKT_PING,
+    PKT_PONG,
+    PKT_STREAM_DATA,
+    PKT_STREAM_STATE,
+    PROTOCOL_VERSION,
+    XPFLAG_HAS_EXTRA,
+    XPFLAG_HAS_RECV_TS,
+    PacketHeader,
+    RxSeqUpdate,
+    ack_mask_contains,
+    decode_short_packet,
+    encode_short_packet,
+    parse_extras_blob,
+    update_rx_seq,
+)
 from .session import CallSession
 from .signaling import CallSignalingAdapter
 from .state import CallEndReason, CallState
@@ -26,6 +49,7 @@ from .types import (
     default_protocol,
     parse_call_config,
 )
+from .visual_key import derive_call_emojis, fingerprint_to_hex
 
 __all__ = [
     "CallCryptoContext",
@@ -36,11 +60,19 @@ __all__ = [
     "CallKeyMaterial",
     "CallMediaError",
     "CallProtocolError",
+    "decrypt_short_packet",
+    "encode_short_packet",
+    "decode_short_packet",
+    "encrypt_short_packet",
+    "kdf2",
+    "MtProto2VoipError",
     "CallSession",
     "CallSignalingAdapter",
     "CallState",
     "CallStateError",
     "CallStats",
+    "PacketHeader",
+    "RxSeqUpdate",
     "CallTimeoutError",
     "CallsDisabledError",
     "CallsError",
@@ -54,9 +86,27 @@ __all__ = [
     "PortAudioError",
     "PhoneCallRef",
     "PcmCallback",
+    "PROTOCOL_VERSION",
+    "MIN_PROTOCOL_VERSION",
+    "PKT_INIT",
+    "PKT_INIT_ACK",
+    "PKT_STREAM_STATE",
+    "PKT_STREAM_DATA",
+    "PKT_PING",
+    "PKT_PONG",
+    "PKT_NOP",
+    "XPFLAG_HAS_EXTRA",
+    "XPFLAG_HAS_RECV_TS",
+    "EXTRA_TYPE_STREAM_FLAGS",
+    "EXTRA_TYPE_NETWORK_CHANGED",
+    "ack_mask_contains",
+    "parse_extras_blob",
+    "update_rx_seq",
     "SignalingDataError",
     "build_input_phone_call",
+    "derive_call_emojis",
     "default_crypto_profile",
     "default_protocol",
+    "fingerprint_to_hex",
     "parse_call_config",
 ]

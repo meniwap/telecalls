@@ -35,6 +35,9 @@ async def _run(args: argparse.Namespace) -> int:
         calls_config={
             "native_bridge_enabled": args.native,
             "native_test_mode": args.native,
+            "protocol_min_layer": 65,
+            "protocol_max_layer": 92,
+            "library_versions": ["11.0.0", "10.0.0", "9.0.0"],
         },
     )
 
@@ -99,9 +102,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test for call signaling+handshake.")
     parser.add_argument("--peer", required=True, help="Target peer (@username or user:<id>)")
     parser.add_argument("--network", choices=["test", "prod"], default="prod")
-    parser.add_argument("--dc", type=int, default=2)
+    parser.add_argument("--dc", type=int, default=4)
     parser.add_argument("--framing", choices=["intermediate", "abridged"], default="intermediate")
-    parser.add_argument("--session", type=str, default=".sessions/prod_dc2.session.json")
+    parser.add_argument("--session", type=str, default=".sessions/prod_dc4.session.json")
     parser.add_argument("--timeout", type=float, default=40.0)
     parser.add_argument("--hold-seconds", type=float, default=1.0)
     parser.add_argument("--runs", type=int, default=20)

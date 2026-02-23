@@ -230,7 +230,13 @@ class CallCryptoContext:
         expected_fingerprint: int,
     ) -> CallKeyMaterial:
         if self.role == "outgoing":
-            material = self._derive_shared_key(remote_public=g_a_or_b)
+            if self._shared_key is not None and self._key_fingerprint is not None:
+                material = CallKeyMaterial(
+                    auth_key=bytes(self._shared_key),
+                    key_fingerprint=self._key_fingerprint,
+                )
+            else:
+                material = self._derive_shared_key(remote_public=g_a_or_b)
         else:
             material = self.apply_remote_g_a(g_a_or_b, expected_fingerprint=expected_fingerprint)
 

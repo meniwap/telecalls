@@ -1,0 +1,9 @@
+source_repo=https://github.com/MarshalX/tgcalls.git
+requested_commit=7e6b5b11877fa39d6959ea429af3c6950e666768
+checked_out_commit=7e6b5b11877fa39d6959ea429af3c6950e666768
+vendored_at_utc=2026-02-15T06:52:17Z
+paths=lib_tgcalls,webrtc
+submodule.cmake_helpers=1720a174c4d96bc1512837adcae257c6637438e5
+submodule.pybind11=ee945e705891cc0a5abaf8dd8174caf7cc90fb21
+submodule.libvpx=5b63f0f821e94f8072eb483014cfc33b05978bb9
+submodule.libyuv=ad890067f661dc747a975bc55ba3767fe30d4452

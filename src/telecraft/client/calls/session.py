@@ -35,11 +35,40 @@ class CallSession:
     timers: dict[str, float] = field(default_factory=dict)
     last_error: Exception | None = None
     native_key_attached: bool = False
+    server_ready: bool = False
+    media_ready: bool = False
+    protocol_negotiated: bool = False
+    disconnect_reason_raw: str | None = None
+    e2e_key_fingerprint_hex: str | None = None
+    e2e_emojis: tuple[str, str, str, str] | None = None
+    ringback_stopped_at: float | None = None
+    ring_tone_active: bool = False
+    ring_tone_stopped_at: float | None = None
+    native_state: int | None = None
     last_remote_event: str | None = None
     audio_backend: Any | None = None
+    signaling_rx_count: int = 0
+    signaling_tx_count: int = 0
+    native_decrypt_failures: int = 0
+    audio_capture_frames: int = 0
+    audio_push_ok: int = 0
+    audio_push_fail: int = 0
+    final_stats_snapshot: dict[str, float | int | str | None] | None = None
+    final_audio_capture_frames: int | None = None
+    final_audio_push_ok: int | None = None
+    final_audio_push_fail: int | None = None
+    had_degraded_media_ready: bool = False
+    in_call_gate_satisfied: bool = False
+    in_call_gate_block_reason: str | None = None
+    native_handshake_block_reason: str | None = None
+    last_signaling_blob_len: int | None = None
+    repeated_signaling_blob_count: int = 0
+    selected_relay_endpoint_id: int | None = None
+    selected_relay_endpoint_kind: str | None = None
     _stats: CallStats = field(default_factory=CallStats)
     _signaling_seen_order: deque[bytes] = field(default_factory=deque)
     _signaling_seen_set: set[bytes] = field(default_factory=set)
+    _pending_signaling: deque[bytes] = field(default_factory=deque)
 
     _state_handlers: list[StateHandler] = field(default_factory=list)
     _error_handlers: list[ErrorHandler] = field(default_factory=list)
@@ -79,7 +108,7 @@ class CallSession:
         self.muted = bool(muted)
         await self.manager.mute(self, self.muted)
 
-    def stats(self) -> dict[str, float | None]:
+    def stats(self) -> dict[str, float | int | str | None]:
         return self._stats.as_dict()
 
     def _set_timer_deadline(self, name: str, *, timeout: float) -> None:
@@ -156,3 +185,16 @@ class CallSession:
     def _clear_signaling_history(self) -> None:
         self._signaling_seen_order.clear()
         self._signaling_seen_set.clear()
+
+    def _queue_pending_signaling(self, payload: bytes, *, max_items: int = 256) -> None:
+        self._pending_signaling.append(bytes(payload))
+        while len(self._pending_signaling) > max(1, int(max_items)):
+            self._pending_signaling.popleft()
+
+    def _pop_pending_signaling(self) -> bytes | None:
+        if not self._pending_signaling:
+            return None
+        return self._pending_signaling.popleft()
+
+    def _clear_pending_signaling(self) -> None:
+        self._pending_signaling.clear()

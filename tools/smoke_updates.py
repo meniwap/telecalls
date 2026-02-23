@@ -48,10 +48,10 @@ def main() -> int:
         description="Smoke-test updates receiver (requires logged-in session)."
     )
     p.add_argument("--network", choices=["test", "prod"], default="prod")
-    p.add_argument("--dc", type=int, default=2)
+    p.add_argument("--dc", type=int, default=4)
     p.add_argument("--framing", choices=["intermediate", "abridged"], default="intermediate")
     p.add_argument("--timeout", type=float, default=20.0)
-    p.add_argument("--session", type=str, default=".sessions/prod_dc2.session.json")
+    p.add_argument("--session", type=str, default=".sessions/prod_dc4.session.json")
     p.add_argument("--api-id", type=int, default=None)
     p.add_argument("--api-hash", type=str, default=None)
     args = p.parse_args()

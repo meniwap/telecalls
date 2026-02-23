@@ -28,6 +28,13 @@ def test_live_calls_e2e_outgoing() -> None:
         pytest.skip("invalid TELEGRAM_API_ID")
 
     hold_seconds = float(os.environ.get("TELECALLS_LIVE_HOLD_SECONDS", "60"))
+    library_versions = [
+        item.strip()
+        for item in os.environ.get("TELECALLS_LIVE_LIBRARY_VERSIONS", "9.0.0").split(",")
+        if item.strip()
+    ]
+    if not library_versions:
+        library_versions = ["9.0.0"]
 
     async def _case() -> None:
         client = Client(
@@ -40,6 +47,10 @@ def test_live_calls_e2e_outgoing() -> None:
                 "native_bridge_enabled": True,
                 "native_test_mode": False,
                 "allow_p2p": False,
+                "protocol_min_layer": 65,
+                "protocol_max_layer": 92,
+                "library_versions": library_versions,
+                "native_backend": os.environ.get("TELECALLS_LIVE_NATIVE_BACKEND", "auto"),
             },
         )
 

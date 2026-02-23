@@ -25,7 +25,7 @@ class CallProtocolSettings:
     # Voice-call protocol layers are independent from the MTProto API schema layer.
     min_layer: int = 65
     max_layer: int = 92
-    library_versions: tuple[str, ...] = ("2.4.4", "2.7.7", "2.8.8")
+    library_versions: tuple[str, ...] = ("9.0.0",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +34,7 @@ class CallConfig:
     protocol: CallProtocolSettings
     connect_timeout_seconds: float | None
     packet_timeout_seconds: float | None
+    connection_max_layer: int | None
 
 
 def build_input_phone_call(ref: PhoneCallRef | Any) -> Any:
@@ -71,11 +72,15 @@ def parse_call_config(data_json: Any) -> CallConfig:
         parsed,
         keys=("call_packet_timeout_ms", "packet_timeout_ms", "packet_timeout"),
     )
+    connection_max_layer = _read_int(parsed, "connection_max_layer", default=-1)
+    if connection_max_layer < 0:
+        connection_max_layer = _read_int(parsed, "voip_connection_max_layer", default=-1)
     return CallConfig(
         raw=parsed,
         protocol=protocol,
         connect_timeout_seconds=connect_timeout_seconds,
         packet_timeout_seconds=packet_timeout_seconds,
+        connection_max_layer=connection_max_layer if connection_max_layer >= 0 else None,
     )
 
 
@@ -95,7 +100,7 @@ def protocol_from_call_config(config: Mapping[str, Any] | None) -> CallProtocolS
 
     versions = _read_library_versions(protocol_obj)
     if not versions:
-        versions = ("2.4.4", "2.7.7", "2.8.8")
+        versions = ("9.0.0",)
 
     return CallProtocolSettings(
         udp_p2p=udp_p2p,

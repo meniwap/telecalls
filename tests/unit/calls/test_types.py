@@ -13,7 +13,7 @@ from telecraft.client.calls.types import (
 def test_parse_call_config_extracts_protocol_and_timeouts() -> None:
     obj = SimpleNamespace(
         TL_NAME="dataJSON",
-        data='{"protocol":{"udp_p2p":true,"udp_reflector":true,"min_layer":120,"max_layer":210,"library_versions":["a","b"]},"call_connect_timeout_ms":15000,"packet_timeout":8}',
+        data='{"protocol":{"udp_p2p":true,"udp_reflector":true,"min_layer":120,"max_layer":210,"library_versions":["a","b"]},"call_connect_timeout_ms":15000,"packet_timeout":8,"connection_max_layer":190}',
     )
 
     parsed = parse_call_config(obj)
@@ -25,6 +25,7 @@ def test_parse_call_config_extracts_protocol_and_timeouts() -> None:
     assert parsed.protocol.library_versions == ("a", "b")
     assert parsed.connect_timeout_seconds == 15.0
     assert parsed.packet_timeout_seconds == 8.0
+    assert parsed.connection_max_layer == 190
 
 
 def test_parse_call_config_accepts_datajson_bytes_payload() -> None:

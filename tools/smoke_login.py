@@ -198,7 +198,7 @@ async def _run(args: argparse.Namespace) -> int:
 def main() -> int:
     p = argparse.ArgumentParser(description="Smoke-test MTProto user login (sendCode/signIn).")
     p.add_argument("--network", choices=["test", "prod"], default="prod", help="Telegram network")
-    p.add_argument("--dc", type=int, default=2, help="Initial DC id")
+    p.add_argument("--dc", type=int, default=4, help="Initial DC id")
     p.add_argument("--host", type=str, default=None, help="Override host (disables DC mapping)")
     p.add_argument("--port", type=int, default=443, help="Port (when using --host)")
     p.add_argument("--framing", choices=["intermediate", "abridged"], default="intermediate")

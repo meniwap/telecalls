@@ -1,6 +1,8 @@
 # telecalls
 
-Minimal MTProto-first Telegram calls signaling library (Mac-first, no audio engine yet).
+> WIP: this project is still under active development and does not work reliably yet.
+
+Experimental MTProto-first Telegram calls signaling library (Mac-first, no audio engine yet).
 
 ## Scope (current)
 
